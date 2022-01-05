@@ -10,6 +10,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Threads(Threads.MAX)
 @State(Scope.Thread)
@@ -56,18 +57,23 @@ public class LockBenchmark {
     @State(Scope.Benchmark)
     public static class BenchmarkState {
 
-        @Param({"SPIN_LOCK", "TICKET_LOCK"})
+        @Param({"JUC", "SPIN_LOCK", "TICKET_LOCK", "MCS_LOCK"})
         public LockType type;
         public Lock lock;
 
         @Setup(Level.Trial)
         public void setUp() {
             switch (type) {
+                case JUC:
+                    lock = new ReentrantLock();
                 case SPIN_LOCK:
                     lock = new SpinLock();
                     break;
                 case TICKET_LOCK:
                     lock = new TicketLock();
+                    break;
+                case MCS_LOCK:
+                    lock = new McsLock();
                     break;
                 default:
                     throw new IllegalStateException("unknown lock type: " + type);
@@ -76,6 +82,6 @@ public class LockBenchmark {
     }
 
     public enum LockType {
-        SPIN_LOCK, TICKET_LOCK
+        JUC, SPIN_LOCK, TICKET_LOCK, MCS_LOCK
     }
 }

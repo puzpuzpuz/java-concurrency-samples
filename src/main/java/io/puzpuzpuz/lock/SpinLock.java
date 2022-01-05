@@ -13,7 +13,7 @@ public class SpinLock implements Lock {
     @Override
     public void lock() {
         while (!lock.compareAndSet(false, true)) {
-            LockSupport.parkNanos(10);
+            LockSupport.parkNanos(1);
         }
     }
 

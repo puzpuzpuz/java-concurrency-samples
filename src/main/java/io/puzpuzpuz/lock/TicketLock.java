@@ -8,14 +8,14 @@ import java.util.concurrent.locks.LockSupport;
 
 public class TicketLock implements Lock {
 
-    private final PaddedAtomicLong ticketSeq = new PaddedAtomicLong();
+    private final PaddedAtomicLong nextTicket = new PaddedAtomicLong();
     private final PaddedAtomicLong servedTicket = new PaddedAtomicLong();
 
     @Override
     public void lock() {
-        final long ticket = ticketSeq.incrementAndGet();
+        final long ticket = nextTicket.incrementAndGet();
         for (;;) {
-            final long served = servedTicket.get();
+            final long served = servedTicket.getAcquire();
             final long queueSize = ticket - served - 1;
             if (queueSize == 0) {
                 break;
@@ -23,7 +23,7 @@ public class TicketLock implements Lock {
             if (queueSize < 0) {
                 throw new IllegalStateException("unlock was called without prior locking: " + queueSize);
             }
-            LockSupport.parkNanos(10 * queueSize);
+            LockSupport.parkNanos(queueSize);
         }
     }
 
@@ -44,7 +44,8 @@ public class TicketLock implements Lock {
 
     @Override
     public void unlock() {
-        servedTicket.incrementAndGet();
+        final long served = servedTicket.get();
+        servedTicket.setRelease(served + 1);
     }
 
     @Override
