@@ -44,7 +44,6 @@ public class McsLock implements Lock {
         PaddedQueueNode qnode = tlQNode.get();
         if (qnode.next == null) {
             if (tailRef.compareAndSet(qnode, null)) {
-                qnode.locked = 0;
                 return;
             }
             while (qnode.next == null) {
@@ -52,6 +51,7 @@ public class McsLock implements Lock {
             }
         }
         qnode.next.locked = 0;
+        qnode.next = null;
     }
 
     @Override
