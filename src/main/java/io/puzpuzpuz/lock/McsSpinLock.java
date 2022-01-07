@@ -4,7 +4,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.LockSupport;
 
 public class McsSpinLock implements Lock {
 
@@ -18,9 +17,7 @@ public class McsSpinLock implements Lock {
         if (prevNode != null) {
             localNode.locked = 1;
             prevNode.next = localNode;
-            while (localNode.locked == 1) {
-                LockSupport.parkNanos(10);
-            }
+            while (localNode.locked == 1) {}
         }
     }
 
@@ -46,9 +43,7 @@ public class McsSpinLock implements Lock {
             if (tailRef.compareAndSet(localNode, null)) {
                 return;
             }
-            while (localNode.next == null) {
-                LockSupport.parkNanos(1);
-            }
+            while (localNode.next == null) {}
         }
         localNode.next.locked = 0;
         localNode.next = null;

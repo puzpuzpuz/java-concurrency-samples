@@ -4,14 +4,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 
-public class SpinLock implements Lock {
+public class BackoffSpinLock implements Lock {
 
     private final AtomicBoolean lock = new AtomicBoolean();
 
     @Override
     public void lock() {
-        while (!lock.compareAndSet(false, true)) {}
+        while (!lock.compareAndSet(false, true)) {
+            LockSupport.parkNanos(10);
+        }
     }
 
     @Override

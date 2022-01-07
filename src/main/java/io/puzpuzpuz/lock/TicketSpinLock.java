@@ -20,7 +20,9 @@ public class TicketSpinLock implements Lock {
             if (queueSize == 0) {
                 break;
             }
-            LockSupport.parkNanos(10 * queueSize);
+            if (queueSize > 1) {
+                LockSupport.parkNanos(10);
+            }
         }
     }
 

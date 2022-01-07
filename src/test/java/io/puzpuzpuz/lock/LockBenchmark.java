@@ -57,7 +57,7 @@ public class LockBenchmark {
     @State(Scope.Benchmark)
     public static class BenchmarkState {
 
-        @Param({"JUC_UNFAIR", "JUC_FAIR", "SPIN_LOCK", "TICKET_SPIN_LOCK", "MCS_LOCK", "MCS_SPIN_LOCK"})
+        @Param({"JUC_UNFAIR", "JUC_FAIR", "SPIN_LOCK", "BACKOFF_SPIN_LOCK", "TICKET_SPIN_LOCK", "MCS_LOCK", "MCS_SPIN_LOCK"})
         public LockType type;
         public Lock lock;
 
@@ -72,6 +72,9 @@ public class LockBenchmark {
                     break;
                 case SPIN_LOCK:
                     lock = new SpinLock();
+                    break;
+                case BACKOFF_SPIN_LOCK:
+                    lock = new BackoffSpinLock();
                     break;
                 case TICKET_SPIN_LOCK:
                     lock = new TicketSpinLock();
@@ -89,6 +92,9 @@ public class LockBenchmark {
     }
 
     public enum LockType {
-        JUC_UNFAIR, JUC_FAIR, SPIN_LOCK, TICKET_SPIN_LOCK, MCS_LOCK, MCS_SPIN_LOCK
+        JUC_UNFAIR, JUC_FAIR,
+        SPIN_LOCK, BACKOFF_SPIN_LOCK,
+        TICKET_SPIN_LOCK,
+        MCS_LOCK, MCS_SPIN_LOCK
     }
 }
