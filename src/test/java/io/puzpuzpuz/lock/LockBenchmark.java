@@ -46,20 +46,27 @@ public class LockBenchmark {
         final ThreadLocalRandom rnd = ThreadLocalRandom.current();
         state.lock.lock();
         // emulate some work
-        int sum = 0;
         for (int i = 0; i < NUM_WORK_SPINS; i++) {
-            sum += rnd.nextInt();
+            state.sum += rnd.nextInt();
         }
-        bh.consume(sum);
+        bh.consume(state.sum);
         state.lock.unlock();
     }
 
     @State(Scope.Benchmark)
     public static class BenchmarkState {
 
-        @Param({"JUC_UNFAIR", "JUC_FAIR", "SPIN_LOCK", "BACKOFF_SPIN_LOCK", "TICKET_SPIN_LOCK", "MCS_LOCK", "MCS_SPIN_LOCK"})
+        @Param({
+                "JUC_UNFAIR", "JUC_FAIR",
+                "CAS_SPIN_LOCK", "BACKOFF_CAS_SPIN_LOCK",
+                "BACKOFF_TTAS_SPIN_LOCK",
+                "TICKET_SPIN_LOCK",
+                "MCS_LOCK", "MCS_SPIN_LOCK"
+        })
         public LockType type;
         public Lock lock;
+        // guarded by lock
+        public long sum;
 
         @Setup(Level.Trial)
         public void setUp() {
@@ -70,11 +77,14 @@ public class LockBenchmark {
                 case JUC_FAIR:
                     lock = new ReentrantLock(true);
                     break;
-                case SPIN_LOCK:
-                    lock = new SpinLock();
+                case CAS_SPIN_LOCK:
+                    lock = new CasSpinLock();
                     break;
-                case BACKOFF_SPIN_LOCK:
-                    lock = new BackoffSpinLock();
+                case BACKOFF_CAS_SPIN_LOCK:
+                    lock = new BackoffCasSpinLock();
+                    break;
+                case BACKOFF_TTAS_SPIN_LOCK:
+                    lock = new BackoffTtasSpinLock();
                     break;
                 case TICKET_SPIN_LOCK:
                     lock = new TicketSpinLock();
@@ -93,7 +103,8 @@ public class LockBenchmark {
 
     public enum LockType {
         JUC_UNFAIR, JUC_FAIR,
-        SPIN_LOCK, BACKOFF_SPIN_LOCK,
+        CAS_SPIN_LOCK, BACKOFF_CAS_SPIN_LOCK,
+        BACKOFF_TTAS_SPIN_LOCK,
         TICKET_SPIN_LOCK,
         MCS_LOCK, MCS_SPIN_LOCK
     }

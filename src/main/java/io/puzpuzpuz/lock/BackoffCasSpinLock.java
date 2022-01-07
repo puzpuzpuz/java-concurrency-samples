@@ -6,7 +6,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 
-public class BackoffSpinLock implements Lock {
+public class BackoffCasSpinLock implements Lock {
 
     private final AtomicBoolean lock = new AtomicBoolean();
 

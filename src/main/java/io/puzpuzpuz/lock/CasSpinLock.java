@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
-public class SpinLock implements Lock {
+public class CasSpinLock implements Lock {
 
     private final AtomicBoolean lock = new AtomicBoolean();
 

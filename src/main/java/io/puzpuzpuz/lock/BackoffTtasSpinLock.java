@@ -1,23 +1,29 @@
 package io.puzpuzpuz.lock;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 
-public class TicketSpinLock implements Lock {
+public class BackoffTtasSpinLock implements Lock {
 
-    private final PaddedAtomicLong nextTicket = new PaddedAtomicLong();
-    private final PaddedAtomicLong servedTicket = new PaddedAtomicLong();
+    private static final long MIN_DELAY = 1;
+    private static final long MAX_DELAY = 16;
+
+    private final AtomicBoolean lock = new AtomicBoolean();
 
     @Override
     public void lock() {
-        final long ticket = nextTicket.incrementAndGet();
+        long delay = MIN_DELAY;
         for (;;) {
-            final long served = servedTicket.get();
-            final long queueSize = ticket - served - 1;
-            if (queueSize == 0) {
+            while (lock.get()) {}
+            if (!lock.getAndSet(true)) {
                 return;
+            }
+            LockSupport.parkNanos(delay);
+            if (delay < MAX_DELAY) {
+                delay *= 2;
             }
         }
     }
@@ -39,17 +45,11 @@ public class TicketSpinLock implements Lock {
 
     @Override
     public void unlock() {
-        final long served = servedTicket.get();
-        servedTicket.set(served + 1);
+        lock.set(false);
     }
 
     @Override
     public Condition newCondition() {
         throw new UnsupportedOperationException();
-    }
-
-    private static class PaddedAtomicLong extends AtomicLong {
-        @SuppressWarnings("unused")
-        private long l1, l2, l3, l4, l5, l6, l7;
     }
 }
