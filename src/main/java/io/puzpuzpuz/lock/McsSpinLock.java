@@ -6,7 +6,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 
-public class McsLock implements Lock {
+public class McsSpinLock implements Lock {
 
     private final ThreadLocal<PaddedNode> tlNode = ThreadLocal.withInitial(PaddedNode::new);
     private final AtomicReference<PaddedNode> tailRef = new AtomicReference<>();
@@ -19,7 +19,7 @@ public class McsLock implements Lock {
             localNode.locked = 1;
             prevNode.next = localNode;
             while (localNode.locked == 1) {
-                LockSupport.park(this);
+                LockSupport.parkNanos(10);
             }
         }
     }
@@ -51,7 +51,6 @@ public class McsLock implements Lock {
             }
         }
         localNode.next.locked = 0;
-        LockSupport.unpark(localNode.next.owner);
         localNode.next = null;
     }
 
@@ -62,12 +61,11 @@ public class McsLock implements Lock {
 
     private static class PaddedNode extends Node {
         @SuppressWarnings("unused")
-        private long l1, l2, l3, l4, l5;
+        private long l1, l2, l3, l4, l5, l6;
     }
 
     private static abstract class Node {
         volatile Node next;
         volatile long locked;
-        final Thread owner = Thread.currentThread();
     }
 }

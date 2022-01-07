@@ -18,7 +18,7 @@ import java.util.concurrent.locks.ReentrantLock;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class LockBenchmark {
 
-    private static final int NUM_SPINS = 10;
+    private static final int NUM_WORK_SPINS = 10;
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
@@ -35,7 +35,7 @@ public class LockBenchmark {
     public void testBaseline(Blackhole bh) {
         final ThreadLocalRandom rnd = ThreadLocalRandom.current();
         int sum = 0;
-        for (int i = 0; i < NUM_SPINS; i++) {
+        for (int i = 0; i < NUM_WORK_SPINS; i++) {
             sum += rnd.nextInt();
         }
         bh.consume(sum);
@@ -47,7 +47,7 @@ public class LockBenchmark {
         state.lock.lock();
         // emulate some work
         int sum = 0;
-        for (int i = 0; i < NUM_SPINS; i++) {
+        for (int i = 0; i < NUM_WORK_SPINS; i++) {
             sum += rnd.nextInt();
         }
         bh.consume(sum);
@@ -57,23 +57,30 @@ public class LockBenchmark {
     @State(Scope.Benchmark)
     public static class BenchmarkState {
 
-        @Param({"JUC", "SPIN_LOCK", "TICKET_LOCK", "MCS_LOCK"})
+        @Param({"JUC_UNFAIR", "JUC_FAIR", "SPIN_LOCK", "TICKET_SPIN_LOCK", "MCS_LOCK", "MCS_SPIN_LOCK"})
         public LockType type;
         public Lock lock;
 
         @Setup(Level.Trial)
         public void setUp() {
             switch (type) {
-                case JUC:
+                case JUC_UNFAIR:
                     lock = new ReentrantLock();
+                    break;
+                case JUC_FAIR:
+                    lock = new ReentrantLock(true);
+                    break;
                 case SPIN_LOCK:
                     lock = new SpinLock();
                     break;
-                case TICKET_LOCK:
-                    lock = new TicketLock();
+                case TICKET_SPIN_LOCK:
+                    lock = new TicketSpinLock();
                     break;
                 case MCS_LOCK:
                     lock = new McsLock();
+                    break;
+                case MCS_SPIN_LOCK:
+                    lock = new McsSpinLock();
                     break;
                 default:
                     throw new IllegalStateException("unknown lock type: " + type);
@@ -82,6 +89,6 @@ public class LockBenchmark {
     }
 
     public enum LockType {
-        JUC, SPIN_LOCK, TICKET_LOCK, MCS_LOCK
+        JUC_UNFAIR, JUC_FAIR, SPIN_LOCK, TICKET_SPIN_LOCK, MCS_LOCK, MCS_SPIN_LOCK
     }
 }

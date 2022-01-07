@@ -6,7 +6,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 
-public class TicketLock implements Lock {
+public class TicketSpinLock implements Lock {
 
     private final PaddedAtomicLong nextTicket = new PaddedAtomicLong();
     private final PaddedAtomicLong servedTicket = new PaddedAtomicLong();
@@ -20,10 +20,7 @@ public class TicketLock implements Lock {
             if (queueSize == 0) {
                 break;
             }
-            if (queueSize < 0) {
-                throw new IllegalStateException("unlock was called without prior locking: " + queueSize);
-            }
-            LockSupport.parkNanos(queueSize);
+            LockSupport.parkNanos(10 * queueSize);
         }
     }
 
