@@ -58,7 +58,7 @@ public class LockBenchmark {
 
         @Param({
                 "JUC_UNFAIR", "JUC_FAIR",
-                "CAS_SPIN_LOCK", "BACKOFF_CAS_SPIN_LOCK",
+                "CAS_SPIN_LOCK", "THREAD_YIELD_CAS_SPIN_LOCK", "BACKOFF_CAS_SPIN_LOCK",
                 "BACKOFF_TTAS_SPIN_LOCK",
                 "TICKET_SPIN_LOCK",
                 "MCS_LOCK", "MCS_SPIN_LOCK"
@@ -79,6 +79,9 @@ public class LockBenchmark {
                     break;
                 case CAS_SPIN_LOCK:
                     lock = new CasSpinLock();
+                    break;
+                case THREAD_YIELD_CAS_SPIN_LOCK:
+                    lock = new ThreadYieldCasSpinLock();
                     break;
                 case BACKOFF_CAS_SPIN_LOCK:
                     lock = new BackoffCasSpinLock();
@@ -103,7 +106,7 @@ public class LockBenchmark {
 
     public enum LockType {
         JUC_UNFAIR, JUC_FAIR,
-        CAS_SPIN_LOCK, BACKOFF_CAS_SPIN_LOCK,
+        CAS_SPIN_LOCK, THREAD_YIELD_CAS_SPIN_LOCK, BACKOFF_CAS_SPIN_LOCK,
         BACKOFF_TTAS_SPIN_LOCK,
         TICKET_SPIN_LOCK,
         MCS_LOCK, MCS_SPIN_LOCK
