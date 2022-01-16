@@ -4,7 +4,8 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public class SpscBoundedQueue<E> {
 
-    private static final int INTS_PER_CACHE_LINE = 16;
+    private static final int CACHE_LINE_BYTES = 64;
+    private static final int INTS_PER_CACHE_LINE = CACHE_LINE_BYTES / Integer.BYTES;
     private static final int CONSUMER_INDEX = 0;
     private static final int CONSUMER_CACHED_INDEX = INTS_PER_CACHE_LINE;
     private static final int PRODUCER_INDEX = 2 * INTS_PER_CACHE_LINE;
