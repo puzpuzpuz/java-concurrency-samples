@@ -8,7 +8,7 @@ public class AtomicLongTuple {
 
     // [version, x, y] array
     // version is also used as a TTAS spinlock to synchronize writers
-    private final AtomicLongArray array = new AtomicLongArray(3);
+    private final AtomicLongArray data = new AtomicLongArray(3);
     private final TupleHolder writerHolder = new TupleHolder();
     // reader stats: x - total number of attempts, y - number of successful snapshots
     private final ThreadLocal<PaddedTupleHolder> readerStats = ThreadLocal.withInitial(PaddedTupleHolder::new);
@@ -17,7 +17,7 @@ public class AtomicLongTuple {
         final PaddedTupleHolder stats = readerStats.get();
         for (;;) {
             stats.x++;
-            final long version = array.getAcquire(0);
+            final long version = data.getAcquire(0);
             if ((version & 1) == 1) {
                 // A write is in progress. Keep busy spinning.
                 Thread.yield();
@@ -25,10 +25,10 @@ public class AtomicLongTuple {
             }
 
             // Read the tuple.
-            holder.x = array.getAcquire(1);
-            holder.y = array.getAcquire(2);
+            holder.x = data.getAcquire(1);
+            holder.y = data.getAcquire(2);
 
-            if (array.getAcquire(0) == version) {
+            if (data.getAcquire(0) == version) {
                 // The version didn't change, so the atomic snapshot succeeded.
                 stats.y++;
                 return;
@@ -38,7 +38,7 @@ public class AtomicLongTuple {
 
     public void write(Consumer<TupleHolder> writer) {
         for (;;) {
-            final long version = array.getOpaque(0);
+            final long version = data.getOpaque(0);
             if ((version & 1) == 1) {
                 // A write is in progress. Keep busy spinning.
                 Thread.yield();
@@ -46,21 +46,21 @@ public class AtomicLongTuple {
             }
 
             // Try to update the version to an odd value (write intent).
-            if (array.compareAndExchangeAcquire(0, version, version + 1) != version) {
+            if (data.compareAndExchangeAcquire(0, version, version + 1) != version) {
                 // Someone else started writing. Back off and try again.
                 LockSupport.parkNanos(10);
                 continue;
             }
 
             // Apply the write.
-            writerHolder.x = array.getPlain(1);
-            writerHolder.y = array.getPlain(2);
+            writerHolder.x = data.getPlain(1);
+            writerHolder.y = data.getPlain(2);
             writer.accept(writerHolder);
-            array.setRelease(1, writerHolder.x);
-            array.setRelease(2, writerHolder.y);
+            data.setRelease(1, writerHolder.x);
+            data.setRelease(2, writerHolder.y);
 
             // Update the version to an even value (write finished).
-            array.setRelease(0, version + 2);
+            data.setRelease(0, version + 2);
             return;
         }
     }
