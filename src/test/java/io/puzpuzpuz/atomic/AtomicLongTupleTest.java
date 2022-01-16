@@ -136,7 +136,7 @@ public class AtomicLongTupleTest {
                             h.y++;
                         }
                     });
-                    LockSupport.parkNanos(100);
+                    LockSupport.parkNanos(50);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
