@@ -38,7 +38,7 @@ public class AtomicLongTuple {
 
     public void write(Consumer<TupleHolder> writer) {
         for (;;) {
-            final long version = array.getAcquire(0);
+            final long version = array.getOpaque(0);
             if ((version & 1) == 1) {
                 // A write is in progress. Keep busy spinning.
                 Thread.yield();
@@ -46,7 +46,7 @@ public class AtomicLongTuple {
             }
 
             // Try to update the version to an odd value (write intent).
-            if (array.compareAndExchangeRelease(0, version, version + 1) != version) {
+            if (array.compareAndExchangeAcquire(0, version, version + 1) != version) {
                 // Someone else started writing. Back off and try again.
                 LockSupport.parkNanos(10);
                 continue;

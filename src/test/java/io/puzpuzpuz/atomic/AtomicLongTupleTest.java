@@ -30,11 +30,16 @@ public class AtomicLongTupleTest {
     }
 
     @Test
-    public void testHammer() throws InterruptedException {
-        final int readers = 4;
-        final int writers = 1;
-        final int iterations = 10_000;
+    public void testHammerSingleWriter() throws InterruptedException {
+        testHammer(4, 1, 10_000);
+    }
 
+    @Test
+    public void testHammerMultipleWriters() throws InterruptedException {
+        testHammer(4, 2, 10_000);
+    }
+
+    private void testHammer(int readers, int writers, int iterations) throws InterruptedException {
         AtomicLongTuple tuple = new AtomicLongTuple();
 
         CyclicBarrier barrier = new CyclicBarrier(readers + writers);
@@ -47,7 +52,7 @@ public class AtomicLongTupleTest {
         }
 
         for (int i = 0; i < writers; i++) {
-            WriterThread writer = new WriterThread(tuple, barrier, latch, iterations);
+            WriterThread writer = new WriterThread(tuple, barrier, latch, anomalies, iterations);
             writer.start();
         }
 
@@ -104,12 +109,14 @@ public class AtomicLongTupleTest {
         private final AtomicLongTuple tuple;
         private final CyclicBarrier barrier;
         private final CountDownLatch latch;
+        private final AtomicInteger anomalies;
         private final int iterations;
 
-        private WriterThread(AtomicLongTuple tuple, CyclicBarrier barrier, CountDownLatch latch, int iterations) {
+        private WriterThread(AtomicLongTuple tuple, CyclicBarrier barrier, CountDownLatch latch, AtomicInteger anomalies, int iterations) {
             this.tuple = tuple;
             this.barrier = barrier;
             this.latch = latch;
+            this.anomalies = anomalies;
             this.iterations = iterations;
         }
 
@@ -118,9 +125,16 @@ public class AtomicLongTupleTest {
             try {
                 barrier.await();
                 for (int i = 0; i < iterations; i++) {
+                    final int expectedValue = i;
                     tuple.write(h -> {
-                        h.x++;
-                        h.y++;
+                        if (h.x < expectedValue) {
+                            // Another writer overwrote our value.
+                            anomalies.incrementAndGet();
+                        }
+                        if (h.x == expectedValue) {
+                            h.x++;
+                            h.y++;
+                        }
                     });
                     LockSupport.parkNanos(100);
                 }
