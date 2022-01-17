@@ -1,49 +1,48 @@
 package io.puzpuzpuz.queue;
 
-import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SpscBoundedQueue<E> {
 
-    private static final int CACHE_LINE_BYTES = 64;
-    private static final int INTS_PER_CACHE_LINE = CACHE_LINE_BYTES / Integer.BYTES;
-    private static final int CONSUMER_INDEX = 0;
-    private static final int CONSUMER_CACHED_INDEX = INTS_PER_CACHE_LINE;
-    private static final int PRODUCER_INDEX = 2 * INTS_PER_CACHE_LINE;
-    private static final int PRODUCER_CACHED_INDEX = 3 * INTS_PER_CACHE_LINE;
-
     private final Object[] data;
-    private final AtomicIntegerArray indexes = new AtomicIntegerArray(4 * INTS_PER_CACHE_LINE);
+    private final PaddedAtomicInteger producerIdx = new PaddedAtomicInteger();
+    private final PaddedAtomicInteger producerCachedIdx = new PaddedAtomicInteger();
+    private final PaddedAtomicInteger consumerIdx = new PaddedAtomicInteger();
+    private final PaddedAtomicInteger consumerCachedIdx = new PaddedAtomicInteger();
 
     public SpscBoundedQueue(int size) {
         this.data = new Object[size + 1];
     }
 
     public boolean offer(E e) {
-        final int idx = indexes.getOpaque(PRODUCER_INDEX);
+        if (e == null) {
+            throw new NullPointerException();
+        }
+        final int idx = producerIdx.getPlain();
         int nextIdx = idx + 1;
         if (nextIdx == data.length) {
             nextIdx = 0;
         }
-        int consumerCachedIdx = indexes.getPlain(CONSUMER_CACHED_INDEX);
-        if (nextIdx == consumerCachedIdx) {
-            consumerCachedIdx = indexes.getAcquire(CONSUMER_INDEX);
-            indexes.setPlain(CONSUMER_CACHED_INDEX, consumerCachedIdx);
-            if (nextIdx == consumerCachedIdx) {
+        int _consumerCachedIdx = consumerCachedIdx.getPlain();
+        if (nextIdx == _consumerCachedIdx) {
+            _consumerCachedIdx = consumerIdx.getAcquire();
+            consumerCachedIdx.setPlain(_consumerCachedIdx);
+            if (nextIdx == _consumerCachedIdx) {
                 return false;
             }
         }
         data[idx] = e;
-        indexes.setRelease(PRODUCER_INDEX, nextIdx);
+        producerIdx.setRelease(nextIdx);
         return true;
     }
 
     public E poll() {
-        final int idx = indexes.getOpaque(CONSUMER_INDEX);
-        int producerCachedIdx = indexes.getPlain(PRODUCER_CACHED_INDEX);
-        if (idx == producerCachedIdx) {
-            producerCachedIdx = indexes.getAcquire(PRODUCER_INDEX);
-            indexes.setPlain(PRODUCER_CACHED_INDEX, producerCachedIdx);
-            if (idx == producerCachedIdx) {
+        final int idx = consumerIdx.getPlain();
+        int _producerCachedIdx = producerCachedIdx.getPlain();
+        if (idx == _producerCachedIdx) {
+            _producerCachedIdx = producerIdx.getAcquire();
+            producerCachedIdx.setPlain(_producerCachedIdx);
+            if (idx == _producerCachedIdx) {
                 return null;
             }
         }
@@ -53,7 +52,13 @@ public class SpscBoundedQueue<E> {
         if (nextIdx == data.length) {
             nextIdx = 0;
         }
-        indexes.setRelease(CONSUMER_INDEX, nextIdx);
+        consumerIdx.setRelease(nextIdx);
         return element;
+    }
+
+    static class PaddedAtomicInteger extends AtomicInteger {
+        @SuppressWarnings("unused")
+        private int i1, i2, i3, i4, i5, i6, i7, i8,
+                i9, i10, i11, i12, i13, i14, i15;
     }
 }
