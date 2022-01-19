@@ -10,7 +10,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.util.concurrent.TimeUnit;
 
 @Threads(Threads.MAX)
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class AtomicLongTupleBenchmark {

@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Threads(Threads.MAX)
-@State(Scope.Thread)
+@State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class LossyCounterBenchmark {
@@ -30,19 +30,19 @@ public class LossyCounterBenchmark {
     }
 
     @Benchmark
-    public void testLossyPlain() {
-        ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        long v = counter.getPlain();
-        long inc = rnd.nextLong(1000);
-        counter.setPlain(v + inc);
-    }
-
-    @Benchmark
     public void testLossyAcquireRelease() {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         long v = counter.getAcquire();
         long inc = rnd.nextLong(1000);
         counter.setRelease(v + inc);
+    }
+
+    @Benchmark
+    public void testLossyDefault() {
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        long v = counter.get();
+        long inc = rnd.nextLong(1000);
+        counter.set(v + inc);
     }
 
     @Benchmark
