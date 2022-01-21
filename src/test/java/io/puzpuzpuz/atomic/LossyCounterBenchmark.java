@@ -1,6 +1,7 @@
 package io.puzpuzpuz.atomic;
 
 import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -27,6 +28,13 @@ public class LossyCounterBenchmark {
                 .build();
 
         new Runner(opt).run();
+    }
+
+    @Benchmark
+    public void testBaseline(Blackhole bh) {
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        long inc = rnd.nextLong(1000);
+        bh.consume(inc);
     }
 
     @Benchmark
