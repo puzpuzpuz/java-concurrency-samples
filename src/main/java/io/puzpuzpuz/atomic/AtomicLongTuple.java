@@ -25,8 +25,8 @@ public class AtomicLongTuple {
             }
 
             // Read the tuple.
-            holder.x = data.getAcquire(1);
-            holder.y = data.getAcquire(2);
+            holder.x = data.getOpaque(1);
+            holder.y = data.getOpaque(2);
 
             if (data.getAcquire(0) == version) {
                 // The version didn't change, so the atomic snapshot succeeded.
@@ -53,8 +53,8 @@ public class AtomicLongTuple {
             }
 
             // Apply the write.
-            writerHolder.x = data.getPlain(1);
-            writerHolder.y = data.getPlain(2);
+            writerHolder.x = data.getOpaque(1);
+            writerHolder.y = data.getOpaque(2);
             writer.accept(writerHolder);
             data.setRelease(1, writerHolder.x);
             data.setRelease(2, writerHolder.y);
