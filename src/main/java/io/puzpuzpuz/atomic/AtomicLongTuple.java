@@ -1,14 +1,24 @@
 package io.puzpuzpuz.atomic;
 
-import java.util.concurrent.atomic.AtomicLongArray;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 public class AtomicLongTuple {
 
-    // [version, x, y] array
+    private static final VarHandle VH_VERSION;
+    private static final VarHandle VH_X;
+    private static final VarHandle VH_Y;
+
     // version is also used as a TTAS spinlock to synchronize writers
-    private final AtomicLongArray data = new AtomicLongArray(3);
+    @SuppressWarnings("unused")
+    private long version;
+    @SuppressWarnings("unused")
+    private long x;
+    @SuppressWarnings("unused")
+    private long y;
+
     private final TupleHolder writerHolder = new TupleHolder();
     // reader stats: x - total number of attempts, y - number of successful snapshots
     private final ThreadLocal<PaddedTupleHolder> readerStats = ThreadLocal.withInitial(PaddedTupleHolder::new);
@@ -17,7 +27,7 @@ public class AtomicLongTuple {
         final PaddedTupleHolder stats = readerStats.get();
         for (;;) {
             stats.x++;
-            final long version = data.getAcquire(0);
+            final long version = (long) VH_VERSION.getAcquire(this);
             if ((version & 1) == 1) {
                 // A write is in progress. Keep busy spinning.
                 Thread.yield();
@@ -25,10 +35,11 @@ public class AtomicLongTuple {
             }
 
             // Read the tuple.
-            holder.x = data.getOpaque(1);
-            holder.y = data.getOpaque(2);
+            holder.x = (long) VH_X.getAcquire(this);
+            holder.y = (long) VH_Y.getAcquire(this);
 
-            if (data.getAcquire(0) == version) {
+            final long currentVersion = (long) VH_VERSION.getAcquire(this);
+            if (currentVersion == version) {
                 // The version didn't change, so the atomic snapshot succeeded.
                 stats.y++;
                 return;
@@ -38,7 +49,7 @@ public class AtomicLongTuple {
 
     public void write(Consumer<TupleHolder> writer) {
         for (;;) {
-            final long version = data.getOpaque(0);
+            final long version = (long) VH_VERSION.getAcquire(this);
             if ((version & 1) == 1) {
                 // A write is in progress. Keep busy spinning.
                 Thread.yield();
@@ -46,27 +57,38 @@ public class AtomicLongTuple {
             }
 
             // Try to update the version to an odd value (write intent).
-            if (data.compareAndExchangeAcquire(0, version, version + 1) != version) {
+            final long currentVersion = (long) VH_VERSION.compareAndExchangeAcquire(this, version, version + 1);
+            if (currentVersion != version) {
                 // Someone else started writing. Back off and try again.
                 LockSupport.parkNanos(10);
                 continue;
             }
 
             // Apply the write.
-            writerHolder.x = data.getOpaque(1);
-            writerHolder.y = data.getOpaque(2);
+            writerHolder.x = (long) VH_X.getAcquire(this);
+            writerHolder.y = (long) VH_Y.getAcquire(this);
             writer.accept(writerHolder);
-            data.setRelease(1, writerHolder.x);
-            data.setRelease(2, writerHolder.y);
+            VH_X.setRelease(this, writerHolder.x);
+            VH_Y.setRelease(this, writerHolder.y);
 
             // Update the version to an even value (write finished).
-            data.setRelease(0, version + 2);
+            VH_VERSION.setRelease(this, version + 2);
             return;
         }
     }
 
     TupleHolder readerStats() {
         return readerStats.get();
+    }
+
+    static {
+        try {
+            VH_VERSION = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "version", long.class);
+            VH_X = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "x", long.class);
+            VH_Y = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "y", long.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public static class TupleHolder {

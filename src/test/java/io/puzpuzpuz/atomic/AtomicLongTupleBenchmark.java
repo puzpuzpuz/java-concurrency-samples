@@ -22,7 +22,7 @@ public class AtomicLongTupleBenchmark {
         Options opt = new OptionsBuilder()
                 .include(AtomicLongTupleBenchmark.class.getSimpleName())
                 .warmupIterations(3)
-                .measurementIterations(10)
+                .measurementIterations(5)
                 .forks(1)
                 .build();
 
@@ -39,5 +39,13 @@ public class AtomicLongTupleBenchmark {
     public void testReadOnly() {
         AtomicLongTuple.TupleHolder holder = readerHolder.get();
         tuple.read(holder);
+    }
+
+    @Benchmark
+    public void testWrites() {
+        tuple.write(h -> {
+            h.x++;
+            h.y++;
+        });
     }
 }
