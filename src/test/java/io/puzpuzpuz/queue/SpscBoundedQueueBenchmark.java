@@ -8,6 +8,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 @State(Scope.Group)
 @BenchmarkMode(Mode.Throughput)
@@ -41,7 +42,7 @@ public class SpscBoundedQueueBenchmark {
         }
         for (int i = 0; i < OPS_PER_ITERATION; i++) {
             while (!queue.offer(element)) {
-                Thread.yield();
+                LockSupport.parkNanos(1);
             }
         }
     }
@@ -55,7 +56,7 @@ public class SpscBoundedQueueBenchmark {
         }
         for (int i = 0; i < OPS_PER_ITERATION; i++) {
             while (queue.poll() == null) {
-                Thread.yield();
+                LockSupport.parkNanos(1);
             }
         }
     }
