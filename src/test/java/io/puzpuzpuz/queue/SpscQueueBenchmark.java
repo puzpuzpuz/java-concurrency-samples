@@ -3,6 +3,7 @@ package io.puzpuzpuz.queue;
 import org.jctools.queues.SpscArrayQueue;
 import org.jctools.queues.atomic.SpscAtomicArrayQueue;
 import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.infra.Control;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -17,9 +18,8 @@ import java.util.concurrent.locks.LockSupport;
 @State(Scope.Group)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-public class SpscBoundedQueueBenchmark {
+public class SpscQueueBenchmark {
 
-    public static final String GROUP_NAME = "SpscBoundedQueue";
     public static final int OPS_PER_ITERATION = 1_000_000;
     public static final int QUEUE_CAPACITY = 1_000;
 
@@ -27,7 +27,7 @@ public class SpscBoundedQueueBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(SpscBoundedQueueBenchmark.class.getSimpleName())
+                .include(SpscQueueBenchmark.class.getSimpleName())
                 .warmupIterations(3)
                 .measurementIterations(3)
                 .addProfiler("gc")
@@ -38,7 +38,7 @@ public class SpscBoundedQueueBenchmark {
     }
 
     @Benchmark
-    @Group(GROUP_NAME)
+    @Group()
     @GroupThreads()
     public void write(BenchmarkState state, Control control) {
         if (control.stopMeasurement) {
@@ -48,11 +48,12 @@ public class SpscBoundedQueueBenchmark {
             while (!state.queue.offer(element)) {
                 LockSupport.parkNanos(1);
             }
+            Blackhole.consumeCPU(10);
         }
     }
 
     @Benchmark
-    @Group(GROUP_NAME)
+    @Group()
     @GroupThreads()
     public void read(BenchmarkState state, Control control) {
         if (control.stopMeasurement) {
@@ -62,6 +63,7 @@ public class SpscBoundedQueueBenchmark {
             while (state.queue.poll() == null) {
                 LockSupport.parkNanos(1);
             }
+            Blackhole.consumeCPU(10);
         }
     }
 
