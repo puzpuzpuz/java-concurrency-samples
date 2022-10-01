@@ -18,7 +18,7 @@ public class SpscBoundedQueue<E> {
         if (e == null) {
             throw new NullPointerException();
         }
-        final int idx = producerIdx.getPlain();
+        final int idx = producerIdx.getOpaque();
         int nextIdx = idx + 1;
         if (nextIdx == data.length) {
             nextIdx = 0;
@@ -37,7 +37,7 @@ public class SpscBoundedQueue<E> {
     }
 
     public E poll() {
-        final int idx = consumerIdx.getPlain();
+        final int idx = consumerIdx.getOpaque();
         int cachedIdx = producerCachedIdx.getPlain();
         if (idx == cachedIdx) {
             cachedIdx = producerIdx.getAcquire();
