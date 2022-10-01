@@ -23,11 +23,11 @@ public class SpscBoundedQueue<E> {
         if (nextIdx == data.length) {
             nextIdx = 0;
         }
-        int _consumerCachedIdx = consumerCachedIdx.getPlain();
-        if (nextIdx == _consumerCachedIdx) {
-            _consumerCachedIdx = consumerIdx.getAcquire();
-            consumerCachedIdx.setPlain(_consumerCachedIdx);
-            if (nextIdx == _consumerCachedIdx) {
+        int cachedIdx = consumerCachedIdx.getPlain();
+        if (nextIdx == cachedIdx) {
+            cachedIdx = consumerIdx.getAcquire();
+            consumerCachedIdx.setPlain(cachedIdx);
+            if (nextIdx == cachedIdx) {
                 return false;
             }
         }
@@ -38,11 +38,11 @@ public class SpscBoundedQueue<E> {
 
     public E poll() {
         final int idx = consumerIdx.getPlain();
-        int _producerCachedIdx = producerCachedIdx.getPlain();
-        if (idx == _producerCachedIdx) {
-            _producerCachedIdx = producerIdx.getAcquire();
-            producerCachedIdx.setPlain(_producerCachedIdx);
-            if (idx == _producerCachedIdx) {
+        int cachedIdx = producerCachedIdx.getPlain();
+        if (idx == cachedIdx) {
+            cachedIdx = producerIdx.getAcquire();
+            producerCachedIdx.setPlain(cachedIdx);
+            if (idx == cachedIdx) {
                 return null;
             }
         }
