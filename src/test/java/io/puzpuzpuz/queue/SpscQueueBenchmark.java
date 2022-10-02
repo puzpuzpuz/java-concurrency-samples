@@ -13,7 +13,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 
 @State(Scope.Group)
 @BenchmarkMode(Mode.Throughput)
@@ -46,7 +45,7 @@ public class SpscQueueBenchmark {
         }
         for (int i = 0; i < OPS_PER_ITERATION; i++) {
             while (!state.queue.offer(element)) {
-                LockSupport.parkNanos(1);
+                Thread.yield();
             }
             Blackhole.consumeCPU(10);
         }
@@ -61,7 +60,7 @@ public class SpscQueueBenchmark {
         }
         for (int i = 0; i < OPS_PER_ITERATION; i++) {
             while (state.queue.poll() == null) {
-                LockSupport.parkNanos(1);
+                Thread.yield();
             }
             Blackhole.consumeCPU(10);
         }
