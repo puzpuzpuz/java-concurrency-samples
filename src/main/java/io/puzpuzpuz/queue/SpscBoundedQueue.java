@@ -1,5 +1,6 @@
 package io.puzpuzpuz.queue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Queue;
@@ -62,6 +63,15 @@ public class SpscBoundedQueue<E> implements Queue<E> {
     }
 
     @Override
+    public void clear() {
+        Arrays.fill(data, null);
+        producerIdx.set(0);
+        producerCachedIdx.set(0);
+        consumerIdx.set(0);
+        consumerCachedIdx.set(0);
+    }
+
+    @Override
     public int size() {
         throw new RuntimeException("not implemented");
     }
@@ -118,11 +128,6 @@ public class SpscBoundedQueue<E> implements Queue<E> {
 
     @Override
     public boolean retainAll(Collection<?> collection) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void clear() {
         throw new RuntimeException("not implemented");
     }
 

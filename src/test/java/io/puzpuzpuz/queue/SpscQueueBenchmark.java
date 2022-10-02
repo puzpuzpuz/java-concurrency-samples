@@ -4,11 +4,11 @@ import org.jctools.queues.SpscArrayQueue;
 import org.jctools.queues.atomic.SpscAtomicArrayQueue;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.infra.Control;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.runner.options.TimeValue;
 
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class SpscQueueBenchmark {
 
-    public static final int OPS_PER_ITERATION = 1_000_000;
     public static final int QUEUE_CAPACITY = 1_000;
 
     private static final Object element = new Object();
@@ -28,25 +27,38 @@ public class SpscQueueBenchmark {
         Options opt = new OptionsBuilder()
                 .include(SpscQueueBenchmark.class.getSimpleName())
                 .warmupIterations(3)
+                .warmupTime(TimeValue.seconds(3))
                 .measurementIterations(3)
-                .addProfiler("gc")
+                .measurementTime(TimeValue.seconds(3))
                 .forks(1)
                 .build();
 
         new Runner(opt).run();
     }
 
+    @AuxCounters
+    @State(Scope.Thread)
+    public static class PollCounters {
+        public long pollsFailed;
+        public long pollsMade;
+    }
+
+    @AuxCounters
+    @State(Scope.Thread)
+    public static class OfferCounters {
+        public long offersFailed;
+        public long offersMade;
+    }
+
     @Benchmark
     @Group()
     @GroupThreads()
-    public void write(BenchmarkState state, Control control) {
-        if (control.stopMeasurement) {
-            return;
-        }
-        for (int i = 0; i < OPS_PER_ITERATION; i++) {
-            while (!state.queue.offer(element)) {
-                Thread.yield();
-            }
+    public void write(BenchmarkState state, OfferCounters counters) {
+        if (!state.queue.offer(element)) {
+            counters.offersFailed++;
+            Thread.yield();
+        } else {
+            counters.offersMade++;
             Blackhole.consumeCPU(10);
         }
     }
@@ -54,19 +66,17 @@ public class SpscQueueBenchmark {
     @Benchmark
     @Group()
     @GroupThreads()
-    public void read(BenchmarkState state, Control control) {
-        if (control.stopMeasurement) {
-            return;
-        }
-        for (int i = 0; i < OPS_PER_ITERATION; i++) {
-            while (state.queue.poll() == null) {
-                Thread.yield();
-            }
+    public void read(BenchmarkState state, PollCounters counters) {
+        if (state.queue.poll() == null) {
+            counters.pollsFailed++;
+            Thread.yield();
+        } else {
+            counters.pollsMade++;
             Blackhole.consumeCPU(10);
         }
     }
 
-    @State(Scope.Benchmark)
+    @State(Scope.Group)
     public static class BenchmarkState {
 
         @Param({
@@ -92,6 +102,13 @@ public class SpscQueueBenchmark {
                     break;
                 default:
                     throw new IllegalStateException("unknown queue type: " + type);
+            }
+        }
+
+        @TearDown(Level.Iteration)
+        public void tearDown() {
+            synchronized (queue) {
+                queue.clear();
             }
         }
     }
