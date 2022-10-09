@@ -38,7 +38,6 @@ public class SpscBoundedQueueTest {
 
         ConsumerThread consumer = new ConsumerThread(queue, barrier, latch, anomalies, iterations);
         consumer.start();
-
         ProducerThread producer = new ProducerThread(queue, barrier, latch, anomalies, iterations);
         producer.start();
 
@@ -47,7 +46,7 @@ public class SpscBoundedQueueTest {
         Assert.assertEquals(0, anomalies.get());
     }
 
-    protected static class ConsumerThread extends Thread {
+    private static class ConsumerThread extends Thread {
 
         private final SpscBoundedQueue<Integer> queue;
         private final CyclicBarrier barrier;
@@ -84,6 +83,9 @@ public class SpscBoundedQueueTest {
                     }
                     prev = element;
                 }
+                if (queue.poll() != null) {
+                    anomalies.incrementAndGet();
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 anomalies.incrementAndGet();
@@ -93,7 +95,7 @@ public class SpscBoundedQueueTest {
         }
     }
 
-    protected static class ProducerThread extends Thread {
+    private static class ProducerThread extends Thread {
 
         private final SpscBoundedQueue<Integer> queue;
         private final CyclicBarrier barrier;

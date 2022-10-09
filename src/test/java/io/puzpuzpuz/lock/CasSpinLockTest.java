@@ -18,6 +18,6 @@ public class CasSpinLockTest extends AbstractLockTest {
     @Test
     public void testHammerLock() throws Exception {
         final Lock lock = new CasSpinLock();
-        testHammerLock(lock, 4, 1000);
+        testHammerLock(lock, 4, 10_000);
     }
 }

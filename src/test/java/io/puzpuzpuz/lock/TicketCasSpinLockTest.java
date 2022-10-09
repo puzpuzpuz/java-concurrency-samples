@@ -18,6 +18,6 @@ public class TicketCasSpinLockTest extends AbstractLockTest {
     @Test
     public void testHammerLock() throws Exception {
         final Lock lock = new TicketSpinLock();
-        testHammerLock(lock, 4, 1000);
+        testHammerLock(lock, 4, 10_000);
     }
 }

@@ -1,6 +1,7 @@
 package io.puzpuzpuz.lock;
 
 import org.junit.Assert;
+import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -52,7 +53,7 @@ abstract class AbstractLockTest {
                         if (n != 1) {
                             throw new IllegalStateException("anomalies value: " + n);
                         }
-                        LockSupport.parkNanos(10);
+                        Blackhole.consumeCPU(10);
                         anomalies.decrementAndGet();
                     } finally {
                         lock.unlock();

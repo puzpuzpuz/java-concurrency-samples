@@ -2,11 +2,11 @@ package io.puzpuzpuz.atomic;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 
 public class AtomicLongTupleTest {
 
@@ -91,7 +91,7 @@ public class AtomicLongTupleTest {
                     }
                     prevX = holder.x;
                     prevY = holder.y;
-                    LockSupport.parkNanos(1);
+                    Blackhole.consumeCPU(1);
                 }
                 AtomicLongTuple.TupleHolder stats = tuple.readerStats();
                 System.out.println("reader [threadId=" + Thread.currentThread().getId() + "] stats: " +
@@ -136,7 +136,7 @@ public class AtomicLongTupleTest {
                             h.y++;
                         }
                     });
-                    LockSupport.parkNanos(50);
+                    Blackhole.consumeCPU(50);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
