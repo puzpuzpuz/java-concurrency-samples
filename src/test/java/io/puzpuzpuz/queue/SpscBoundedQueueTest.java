@@ -1,13 +1,11 @@
 package io.puzpuzpuz.queue;
 
-import io.puzpuzpuz.atomic.AtomicLongTuple;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 
 public class SpscBoundedQueueTest {
 
@@ -30,9 +28,9 @@ public class SpscBoundedQueueTest {
 
     @Test
     public void testHammer() throws InterruptedException {
-        final int iterations = 10_000;
+        final int iterations = 1_000_000;
 
-        SpscBoundedQueue<Integer> queue = new SpscBoundedQueue<>(100);
+        SpscBoundedQueue<Integer> queue = new SpscBoundedQueue<>(10);
 
         CyclicBarrier barrier = new CyclicBarrier(2);
         CountDownLatch latch = new CountDownLatch(2);
@@ -41,7 +39,7 @@ public class SpscBoundedQueueTest {
         ConsumerThread consumer = new ConsumerThread(queue, barrier, latch, anomalies, iterations);
         consumer.start();
 
-        ProducerThread producer = new ProducerThread(queue, barrier, latch, iterations);
+        ProducerThread producer = new ProducerThread(queue, barrier, latch, anomalies, iterations);
         producer.start();
 
         latch.await();
@@ -56,9 +54,14 @@ public class SpscBoundedQueueTest {
         private final CountDownLatch latch;
         private final AtomicInteger anomalies;
         private final int iterations;
-        private final AtomicLongTuple.TupleHolder holder = new AtomicLongTuple.TupleHolder();
 
-        private ConsumerThread(SpscBoundedQueue<Integer> queue, CyclicBarrier barrier, CountDownLatch latch, AtomicInteger anomalies, int iterations) {
+        private ConsumerThread(
+                SpscBoundedQueue<Integer> queue,
+                CyclicBarrier barrier,
+                CountDownLatch latch,
+                AtomicInteger anomalies,
+                int iterations
+        ) {
             this.queue = queue;
             this.barrier = barrier;
             this.latch = latch;
@@ -74,7 +77,6 @@ public class SpscBoundedQueueTest {
                 while (prev != iterations - 1) {
                     Integer element = queue.poll();
                     if (element == null) {
-                        LockSupport.parkNanos(1);
                         continue;
                     }
                     if (element != prev + 1) {
@@ -84,6 +86,7 @@ public class SpscBoundedQueueTest {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                anomalies.incrementAndGet();
             } finally {
                 latch.countDown();
             }
@@ -95,12 +98,20 @@ public class SpscBoundedQueueTest {
         private final SpscBoundedQueue<Integer> queue;
         private final CyclicBarrier barrier;
         private final CountDownLatch latch;
+        private final AtomicInteger anomalies;
         private final int iterations;
 
-        private ProducerThread(SpscBoundedQueue<Integer> queue, CyclicBarrier barrier, CountDownLatch latch, int iterations) {
+        private ProducerThread(
+                SpscBoundedQueue<Integer> queue,
+                CyclicBarrier barrier,
+                CountDownLatch latch,
+                AtomicInteger anomalies,
+                int iterations
+        ) {
             this.queue = queue;
             this.barrier = barrier;
             this.latch = latch;
+            this.anomalies = anomalies;
             this.iterations = iterations;
         }
 
@@ -110,11 +121,12 @@ public class SpscBoundedQueueTest {
                 barrier.await();
                 for (int i = 0; i < iterations; i++) {
                     while (!queue.offer(i)) {
-                        LockSupport.parkNanos(1);
+                        // busy spin
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                anomalies.incrementAndGet();
             } finally {
                 latch.countDown();
             }
