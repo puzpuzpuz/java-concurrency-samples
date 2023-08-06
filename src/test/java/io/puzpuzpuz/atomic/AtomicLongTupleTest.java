@@ -18,25 +18,28 @@ public class AtomicLongTupleTest {
         tuple.read(holder);
         Assert.assertEquals(0, holder.x);
         Assert.assertEquals(0, holder.y);
+        Assert.assertEquals(0, holder.z);
 
         tuple.write(h -> {
             h.x = 1;
             h.y = 2;
+            h.z = 3;
         });
 
         tuple.read(holder);
         Assert.assertEquals(1, holder.x);
         Assert.assertEquals(2, holder.y);
+        Assert.assertEquals(3, holder.z);
     }
 
     @Test
     public void testHammerSingleWriter() throws InterruptedException {
-        testHammer(4, 1, 10_000);
+        testHammer(4, 1, 100_000);
     }
 
     @Test
     public void testHammerMultipleWriters() throws InterruptedException {
-        testHammer(4, 2, 10_000);
+        testHammer(4, 2, 100_000);
     }
 
     private void testHammer(int readers, int writers, int iterations) throws InterruptedException {
@@ -68,7 +71,7 @@ public class AtomicLongTupleTest {
         private final CountDownLatch latch;
         private final AtomicInteger anomalies;
         private final int iterations;
-        private final AtomicLongTuple.TupleHolder holder = new AtomicLongTuple.TupleHolder();
+        private final AtomicLongTuple.TupleHolder holder = new AtomicLongTuple.PaddedTupleHolder();
 
         private ReaderThread(AtomicLongTuple tuple, CyclicBarrier barrier, CountDownLatch latch, AtomicInteger anomalies, int iterations) {
             this.tuple = tuple;
@@ -84,14 +87,18 @@ public class AtomicLongTupleTest {
                 barrier.await();
                 long prevX = 0;
                 long prevY = 0;
+                long prevZ = 0;
                 while (prevX != iterations) {
                     tuple.read(holder);
-                    if (holder.x != holder.y || holder.x < prevX || holder.y < prevY) {
+                    if (holder.x != holder.y || holder.x != holder.z) {
+                        anomalies.incrementAndGet();
+                    }
+                    if (holder.x < prevX || holder.y < prevY || holder.z < prevZ) {
                         anomalies.incrementAndGet();
                     }
                     prevX = holder.x;
                     prevY = holder.y;
-                    Blackhole.consumeCPU(1);
+                    prevZ = holder.z;
                 }
                 AtomicLongTuple.TupleHolder stats = tuple.readerStats();
                 System.out.println("reader [threadId=" + Thread.currentThread().getId() + "] stats: " +
@@ -134,6 +141,7 @@ public class AtomicLongTupleTest {
                         if (h.x == expectedValue) {
                             h.x++;
                             h.y++;
+                            h.z++;
                         }
                     });
                     Blackhole.consumeCPU(50);

@@ -5,38 +5,35 @@ import java.lang.invoke.VarHandle;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
-public class AtomicLongTuple {
+public class AtomicLongTuple extends PaddedTuple {
 
     private static final VarHandle VH_VERSION;
     private static final VarHandle VH_X;
     private static final VarHandle VH_Y;
+    private static final VarHandle VH_Z;
 
-    // version is also used as a TTAS spinlock to synchronize writers
-    @SuppressWarnings("unused")
-    private long version;
-    @SuppressWarnings("unused")
-    private long x;
-    @SuppressWarnings("unused")
-    private long y;
-
-    private final TupleHolder writerHolder = new TupleHolder();
+    private final TupleHolder writerHolder = new PaddedTupleHolder();
     // reader stats: x - total number of attempts, y - number of successful snapshots
-    private final ThreadLocal<PaddedTupleHolder> readerStats = ThreadLocal.withInitial(PaddedTupleHolder::new);
+    private final ThreadLocal<TupleHolder> readerStats = ThreadLocal.withInitial(PaddedTupleHolder::new);
 
     public void read(TupleHolder holder) {
-        final PaddedTupleHolder stats = readerStats.get();
+        final TupleHolder stats = readerStats.get();
         for (;;) {
             stats.x++;
             final long version = (long) VH_VERSION.getAcquire(this);
             if ((version & 1) == 1) {
-                // A write is in progress. Keep busy spinning.
-                Thread.yield();
+                // A write is in progress. Back off and keep spinning.
+                LockSupport.parkNanos(1);
                 continue;
             }
 
+            // We don't want the below loads to bubble up, hence the fence.
+            VarHandle.loadLoadFence();
+
             // Read the tuple.
-            holder.x = (long) VH_X.getAcquire(this);
-            holder.y = (long) VH_Y.getAcquire(this);
+            holder.x = (long) VH_X.getOpaque(this);
+            holder.y = (long) VH_Y.getOpaque(this);
+            holder.z = (long) VH_Z.getOpaque(this);
 
             final long currentVersion = (long) VH_VERSION.getAcquire(this);
             if (currentVersion == version) {
@@ -51,25 +48,30 @@ public class AtomicLongTuple {
         for (;;) {
             final long version = (long) VH_VERSION.getAcquire(this);
             if ((version & 1) == 1) {
-                // A write is in progress. Keep busy spinning.
-                Thread.yield();
+                // Another write is in progress. Back off and keep spinning.
+                LockSupport.parkNanos(1);
                 continue;
             }
 
             // Try to update the version to an odd value (write intent).
-            final long currentVersion = (long) VH_VERSION.compareAndExchangeAcquire(this, version, version + 1);
+            final long currentVersion = (long) VH_VERSION.compareAndExchangeRelease(this, version, version + 1);
             if (currentVersion != version) {
                 // Someone else started writing. Back off and try again.
                 LockSupport.parkNanos(10);
                 continue;
             }
 
+            // We don't want the below loads and stores to bubble up, hence the fence.
+            VarHandle.fullFence();
+
             // Apply the write.
-            writerHolder.x = (long) VH_X.getAcquire(this);
-            writerHolder.y = (long) VH_Y.getAcquire(this);
+            writerHolder.x = (long) VH_X.getOpaque(this);
+            writerHolder.y = (long) VH_Y.getOpaque(this);
+            writerHolder.z = (long) VH_Z.getOpaque(this);
             writer.accept(writerHolder);
-            VH_X.setRelease(this, writerHolder.x);
-            VH_Y.setRelease(this, writerHolder.y);
+            VH_X.setOpaque(this, writerHolder.x);
+            VH_Y.setOpaque(this, writerHolder.y);
+            VH_Z.setOpaque(this, writerHolder.z);
 
             // Update the version to an even value (write finished).
             VH_VERSION.setRelease(this, version + 2);
@@ -86,6 +88,7 @@ public class AtomicLongTuple {
             VH_VERSION = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "version", long.class);
             VH_X = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "x", long.class);
             VH_Y = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "y", long.class);
+            VH_Z = MethodHandles.lookup().findVarHandle(AtomicLongTuple.class, "z", long.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new IllegalStateException(e);
         }
@@ -94,10 +97,28 @@ public class AtomicLongTuple {
     public static class TupleHolder {
         public long x;
         public long y;
+        public long z;
     }
 
-    static class PaddedTupleHolder extends TupleHolder {
+    public static class PaddedTupleHolder extends TupleHolder {
         @SuppressWarnings("unused")
-        private long l1, l2, l3, l4, l5, l6;
+        private long l1, l2, l3, l4, l5;
     }
+}
+
+class Tuple {
+    // version is also used as a TTAS spinlock to synchronize writers
+    @SuppressWarnings("unused")
+    long version;
+    @SuppressWarnings("unused")
+    long x;
+    @SuppressWarnings("unused")
+    long y;
+    @SuppressWarnings("unused")
+    long z;
+}
+
+class PaddedTuple extends Tuple {
+    @SuppressWarnings("unused")
+    private long l1, l2, l3, l4;
 }

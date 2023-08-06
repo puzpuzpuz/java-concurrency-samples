@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class AtomicLongTupleBenchmark {
 
     private final AtomicLongTuple tuple = new AtomicLongTuple();
-    private final ThreadLocal<AtomicLongTuple.TupleHolder> readerHolder = ThreadLocal.withInitial(AtomicLongTuple.TupleHolder::new);
+    private final ThreadLocal<AtomicLongTuple.TupleHolder> readerHolder = ThreadLocal.withInitial(AtomicLongTuple.PaddedTupleHolder::new);
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
@@ -46,6 +46,7 @@ public class AtomicLongTupleBenchmark {
         tuple.write(h -> {
             h.x++;
             h.y++;
+            h.z++;
         });
     }
 }
