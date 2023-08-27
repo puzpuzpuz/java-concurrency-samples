@@ -27,13 +27,13 @@ public class AtomicLongTuple extends PaddedTuple {
                 continue;
             }
 
-            // We don't want the below loads to bubble up, hence the fence.
-            VarHandle.loadLoadFence();
-
             // Read the tuple.
             holder.x = (long) VH_X.getOpaque(this);
             holder.y = (long) VH_Y.getOpaque(this);
             holder.z = (long) VH_Z.getOpaque(this);
+
+            // We don't want the below load to bubble up, hence the fence.
+            VarHandle.loadLoadFence();
 
             final long currentVersion = (long) VH_VERSION.getAcquire(this);
             if (currentVersion == version) {
@@ -54,15 +54,14 @@ public class AtomicLongTuple extends PaddedTuple {
             }
 
             // Try to update the version to an odd value (write intent).
-            final long currentVersion = (long) VH_VERSION.compareAndExchangeRelease(this, version, version + 1);
+            // We don't use compareAndExchangeRelease here to avoid an additional
+            // full fence following this call.
+            final long currentVersion = (long) VH_VERSION.compareAndExchange(this, version, version + 1);
             if (currentVersion != version) {
                 // Someone else started writing. Back off and try again.
                 LockSupport.parkNanos(10);
                 continue;
             }
-
-            // We don't want the below loads and stores to bubble up, hence the fence.
-            VarHandle.fullFence();
 
             // Apply the write.
             writerHolder.x = (long) VH_X.getOpaque(this);
